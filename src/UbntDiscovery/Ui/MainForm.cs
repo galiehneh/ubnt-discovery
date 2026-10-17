@@ -37,10 +37,27 @@ public sealed class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(640, 360);
 
+        TryLoadWindowIcon();
         BuildLayout();
         _scanTimer.Interval = 1000;
         _scanTimer.Tick += OnScanTick;
         UpdateActionButtons();
+    }
+
+    private void TryLoadWindowIcon()
+    {
+        try
+        {
+            var path = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(path))
+            {
+                Icon = Icon.ExtractAssociatedIcon(path);
+            }
+        }
+        catch
+        {
+            // Icon is cosmetic; ignore any failure to load it.
+        }
     }
 
     private void BuildLayout()
