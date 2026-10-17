@@ -1,5 +1,6 @@
 use std::sync::atomic::AtomicBool;
 
+pub mod about_window;
 pub mod details_window;
 pub mod main_window;
 pub mod model;

@@ -12,11 +12,11 @@ use native_windows_gui as nwg;
 use nwg::ListViewColumnSortArrow as Arrow;
 use ubnt_discovery::protocol::{client, DiscoveredDevice};
 
-use super::details_window;
 use super::model::{
     autostart_text, build_tsv, countdown_text, filter_and_sort, row_cells, total_text, SortSpec,
     COLUMNS, SCAN_SECONDS,
 };
+use super::{about_window, details_window};
 
 /// Seconds to wait after launch before the first scan starts by itself.
 const AUTOSTART_DELAY_SECS: u64 = 4;
@@ -25,6 +25,10 @@ const MESSAGE_TITLE: &str = "Discovery";
 const TOOLBAR_HEIGHT: u32 = 44;
 const STATUS_HEIGHT: u32 = 26;
 const MIN_SIZE: (i32, i32) = (640, 360);
+const BUTTON_WIDTH: i32 = 88;
+/// Right edge of the Search box; the About button never sits left of this.
+const ABOUT_MIN_X: i32 = 756;
+const ABOUT_MARGIN: i32 = 8;
 
 /// Messages from the scan thread to the UI thread.
 enum ScanMsg {
@@ -52,6 +56,7 @@ struct App {
     details_btn: nwg::Button,
     copy_btn: nwg::Button,
     web_btn: nwg::Button,
+    about_btn: nwg::Button,
     _search_label: nwg::Label,
     search: nwg::TextInput,
     list: nwg::ListView,
@@ -137,7 +142,7 @@ impl App {
                 .parent(&window)
                 .text(text)
                 .position((x, 8))
-                .size((88, 28))
+                .size((BUTTON_WIDTH, 28))
                 .build(&mut b)?;
             Ok(b)
         };
@@ -146,6 +151,7 @@ impl App {
         let details_btn = button("Details...", 196)?;
         let copy_btn = button("Copy", 290)?;
         let web_btn = button("Web UI", 384)?;
+        let about_btn = button("About", ABOUT_MIN_X)?;
 
         let mut search_label = nwg::Label::default();
         nwg::Label::builder()
@@ -189,6 +195,7 @@ impl App {
             details_btn,
             copy_btn,
             web_btn,
+            about_btn,
             _search_label: search_label,
             search,
             list,
@@ -214,6 +221,8 @@ impl App {
         self.list.set_position(0, TOOLBAR_HEIGHT as i32);
         let list_h = h.saturating_sub(TOOLBAR_HEIGHT + STATUS_HEIGHT);
         self.list.set_size(w, list_h);
+        let about_x = (w as i32 - BUTTON_WIDTH - ABOUT_MARGIN).max(ABOUT_MIN_X);
+        self.about_btn.set_position(about_x, 8);
     }
 
     fn on_button(&self, handle: nwg::ControlHandle) {
@@ -228,6 +237,8 @@ impl App {
             self.copy_selection();
         } else if handle == self.web_btn.handle {
             self.open_web_ui();
+        } else if handle == self.about_btn.handle {
+            about_window::show(&self.window);
         }
     }
 

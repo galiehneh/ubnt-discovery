@@ -5,6 +5,13 @@ use std::cmp::Ordering;
 
 use ubnt_discovery::protocol::{DeviceAddress, DiscoveredDevice};
 
+pub const APP_NAME: &str = "LAN Device Discovery";
+pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const AUTHOR: &str = "galiehneh";
+pub const REPO_URL: &str = "https://github.com/galiehneh/ubnt-discovery";
+pub const ORIGINAL_TOOL: &str = "Ubiquiti Discovery Tool v2.5.1";
+pub const LICENSE_TEXT: &str = "License: MIT OR Apache-2.0";
+
 /// Length of one scan in seconds.
 pub const SCAN_SECONDS: u64 = 6;
 
@@ -144,6 +151,15 @@ mod tests {
     use super::*;
     use std::net::Ipv4Addr;
     use std::time::SystemTime;
+
+    #[test]
+    fn about_metadata_matches_the_published_repository() {
+        assert_eq!(REPO_URL, "https://github.com/galiehneh/ubnt-discovery");
+        assert!(REPO_URL.ends_with(env!("CARGO_PKG_NAME")));
+        let parts: Vec<&str> = APP_VERSION.split('.').collect();
+        assert_eq!(parts.len(), 3, "date-based version YYYY.M.D: {APP_VERSION}");
+        assert!(parts.iter().all(|p| p.parse::<u32>().is_ok()));
+    }
 
     fn device(mac: &str, ip: Option<[u8; 4]>, name: Option<&str>) -> DiscoveredDevice {
         DiscoveredDevice {

@@ -1,8 +1,11 @@
 [package]
 name = "ubnt-discovery"
-version = "1.0.0"
+version = "2026.10.17"
 edition = "2021"
 description = "Portable LAN discovery tool for Ubiquiti devices"
+authors = ["galiehneh"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/galiehneh/ubnt-discovery"
 build = "build.rs"
 
 [lib]
@@ -14,7 +17,7 @@ name = "UbntDiscovery"
 path = "src/main.rs"
 
 [dependencies]
-native-windows-gui = { version = "1.0.13", features = ["list-view", "status-bar", "notice", "animation-timer", "clipboard", "high-dpi"] }
+native-windows-gui = { version = "1.0.13", features = ["list-view", "status-bar", "notice", "animation-timer", "clipboard", "high-dpi", "image-decoder"] }
 socket2 = "0.5"
 if-addrs = "0.13"
 opener = "0.7"
