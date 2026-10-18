@@ -2,6 +2,15 @@
 
 Versi memakai tanggal (`YYYY.M.D`).
 
+## [2026.10.18]
+
+### Ditambahkan
+- Aplikasi Android (`android/`): UI Kotlin/Compose, inti discovery Rust yang sama via JNI.
+  APK release ditandatangani, ABI arm64-v8a dan armeabi-v7a, minSdk 24.
+
+### Diubah
+- `native-windows-gui` dan `winresource` kini hanya untuk target Windows.
+
 ## [2026.10.17]
 
 Rilis publik pertama.

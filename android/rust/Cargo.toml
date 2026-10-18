@@ -1,0 +1,16 @@
+[package]
+name = "ubnt-discovery-jni"
+version = "2026.10.17"
+edition = "2021"
+description = "JNI bridge for the Android app"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+name = "ubnt_discovery_jni"
+crate-type = ["cdylib"]
+
+[dependencies]
+ubnt-discovery = { path = "../.." }
+jni = "0.22"
+serde_json = "1"

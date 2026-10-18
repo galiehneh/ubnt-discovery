@@ -1,0 +1,11 @@
+signing/*.keystore
+signing/release-signing.properties
+build/
+app/build/
+.gradle/
+local.properties
+app/src/main/jniLibs/
+*.apk
+.idea/
+*.iml
+.cxx/

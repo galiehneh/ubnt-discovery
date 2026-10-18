@@ -1,0 +1,4 @@
+storeFile=ubnt-discovery-release.keystore
+storePassword=your_store_password
+keyAlias=ubntdiscovery
+keyPassword=your_key_password

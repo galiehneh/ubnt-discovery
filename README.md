@@ -60,6 +60,15 @@ cargo build --release                         # -> target\release\UbntDiscovery.
 Untuk Windows ARM64: `rustup target add aarch64-pc-windows-msvc` lalu
 `cargo build --release --target aarch64-pc-windows-msvc`.
 
+### Android
+
+Prasyarat: Android SDK + NDK 27, JDK 17, `rustup target add aarch64-linux-android armv7-linux-androideabi`, `cargo install cargo-ndk`.
+Salin `android/signing/release-signing.properties.example` ke `release-signing.properties` dan isi keystore Anda (tidak masuk git), lalu:
+
+```bash
+cd android && ./gradlew assembleRelease
+```
+
 ## Struktur proyek
 
 ```
