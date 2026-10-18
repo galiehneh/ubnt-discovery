@@ -8,10 +8,13 @@ import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,20 +30,26 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,7 +60,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -66,6 +79,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             var dark by remember { mutableStateOf(savedDark() ?: systemDark()) }
+            DisposableEffect(dark) {
+                val clear = android.graphics.Color.TRANSPARENT
+                val bars = if (dark) SystemBarStyle.dark(clear) else SystemBarStyle.light(clear, clear)
+                enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+                onDispose {}
+            }
             AppTheme(dark) {
                 Screen(vm, dark, onToggleTheme = { dark = !dark; saveDark(dark) })
             }
@@ -97,18 +116,23 @@ private fun Screen(vm: DiscoveryViewModel, dark: Boolean, onToggleTheme: () -> U
         vm.postMessage("Copied.")
     }
 
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 12.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("LAN Device Discovery", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            Text("LAN Device Discovery", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             TextButton(onClick = onToggleTheme) { Text(if (dark) "☀ Terang" else "☾ Gelap") }
             TextButton(onClick = { showAbout = true }) { Text("About") }
         }
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = vm::onScanClick, modifier = Modifier.weight(1f)) {
+            val scanColors = if (s.scanning) ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            ) else ButtonDefaults.buttonColors()
+            Button(onClick = vm::onScanClick, colors = scanColors, modifier = Modifier.weight(1f)) {
                 Text(if (s.scanning) "${s.buttonLabel} - tap to stop" else s.buttonLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            OutlinedButton(onClick = vm::clear, enabled = s.devices.isNotEmpty()) { Text("Clear") }
-            OutlinedButton(onClick = ::copy, enabled = visible.isNotEmpty()) {
+            OutlinedButton(onClick = vm::clear, enabled = s.devices.isNotEmpty(), border = outlineBorder(s.devices.isNotEmpty())) { Text("Clear") }
+            OutlinedButton(onClick = ::copy, enabled = visible.isNotEmpty(), border = outlineBorder(visible.isNotEmpty())) {
                 Text(if (s.selected.isEmpty()) "Copy" else "Copy (${s.selected.size})")
             }
         }
@@ -117,6 +141,13 @@ private fun Screen(vm: DiscoveryViewModel, dark: Boolean, onToggleTheme: () -> U
             onValueChange = vm::setQuery,
             label = { Text("Search") },
             singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            ),
             modifier = Modifier.fillMaxWidth(),
         )
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -126,6 +157,16 @@ private fun Screen(vm: DiscoveryViewModel, dark: Boolean, onToggleTheme: () -> U
                     selected = on,
                     onClick = { vm.toggleSort(c) },
                     label = { Text(c.label + if (on) (if (s.sort.ascending) " ▲" else " ▼") else "") },
+                    colors = FilterChipDefaults.filterChipColors(
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true, selected = on,
+                        borderColor = MaterialTheme.colorScheme.outline,
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                    ),
                 )
             }
         }
@@ -140,9 +181,10 @@ private fun Screen(vm: DiscoveryViewModel, dark: Boolean, onToggleTheme: () -> U
             }
         }
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Total: ${visible.size}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            Text("Total: ${visible.size}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
             if (s.selected.isNotEmpty()) TextButton(onClick = vm::clearSelection) { Text("Deselect") }
         }
+    }
     }
 
     if (detailDevice != null) {
@@ -153,19 +195,37 @@ private fun Screen(vm: DiscoveryViewModel, dark: Boolean, onToggleTheme: () -> U
     if (showAbout) AboutDialog(onDismiss = { showAbout = false }, onOpen = { ctx.openUrl(REPO_URL) })
 }
 
+@Composable
+private fun outlineBorder(enabled: Boolean) = BorderStroke(
+    1.dp, if (enabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant,
+)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DeviceCard(d: Device, selected: Boolean, selecting: Boolean, onTap: () -> Unit, onLong: () -> Unit) {
-    val colors = if (selected) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-    else CardDefaults.cardColors()
-    Card(colors = colors, modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onTap, onLongClick = onLong)) {
-        Column(Modifier.padding(12.dp)) {
+    val scheme = MaterialTheme.colorScheme
+    val container = if (selected) scheme.primaryContainer else scheme.surfaceContainerLowest
+    val border = if (selected) BorderStroke(2.dp, scheme.primary) else BorderStroke(1.dp, scheme.outlineVariant)
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = container, contentColor = scheme.onSurface),
+        border = border,
+        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onTap, onLongClick = onLong),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(d.displayProduct, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(listOf(d.displayIp, d.mac).filter { it.isNotEmpty() }.joinToString("  |  "), style = MaterialTheme.typography.bodyMedium)
+            val addresses = buildAnnotatedString {
+                if (d.displayIp.isNotEmpty()) {
+                    withStyle(SpanStyle(color = scheme.primary, fontWeight = FontWeight.Medium)) { append(d.displayIp) }
+                    append("  |  ")
+                }
+                withStyle(SpanStyle(color = scheme.onSurfaceVariant)) { append(d.mac) }
+            }
+            Text(addresses, style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace)
             val extra = listOf(d.hostname, d.essid, d.firmware).mapNotNull { it?.takeIf(String::isNotBlank) }
             if (extra.isNotEmpty()) {
                 Text(extra.joinToString("  |  "), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    color = scheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }

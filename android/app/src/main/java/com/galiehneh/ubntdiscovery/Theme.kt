@@ -1,42 +1,42 @@
 package com.galiehneh.ubntdiscovery
 
-import android.app.Activity
 import android.content.Context
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
 
 private val LightColors = lightColorScheme(
     primary = Color(0xFF0B57D0), onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFD3E3FD), onPrimaryContainer = Color(0xFF041E49),
-    secondaryContainer = Color(0xFFD3E3FD), onSecondaryContainer = Color(0xFF041E49),
+    primaryContainer = Color(0xFFDCE6FF), onPrimaryContainer = Color(0xFF001A41),
+    secondary = Color(0xFF4E5D78), onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFD9E2F5), onSecondaryContainer = Color(0xFF0E1B2E),
     error = Color(0xFFB3261E), onError = Color(0xFFFFFFFF),
-    background = Color(0xFFFFFFFF), onBackground = Color(0xFF111111),
-    surface = Color(0xFFF3F3F3), onSurface = Color(0xFF111111),
-    surfaceVariant = Color(0xFFF3F3F3), onSurfaceVariant = Color(0xFF3D3D3D),
-    surfaceContainerLowest = Color(0xFFFFFFFF), surfaceContainerLow = Color(0xFFF3F3F3),
-    surfaceContainer = Color(0xFFF3F3F3), surfaceContainerHigh = Color(0xFFF3F3F3),
-    surfaceContainerHighest = Color(0xFFF3F3F3),
-    outline = Color(0xFF5F5F5F), outlineVariant = Color(0xFFBDBDBD),
+    errorContainer = Color(0xFFF9DEDC), onErrorContainer = Color(0xFF410E0B),
+    background = Color(0xFFF6F8FC), onBackground = Color(0xFF0F172A),
+    surface = Color(0xFFF6F8FC), onSurface = Color(0xFF0F172A),
+    surfaceVariant = Color(0xFFE1E7F0), onSurfaceVariant = Color(0xFF3C4858),
+    surfaceContainerLowest = Color(0xFFFFFFFF), surfaceContainerLow = Color(0xFFF0F3F9),
+    surfaceContainer = Color(0xFFEBEFF6), surfaceContainerHigh = Color(0xFFE5EAF2),
+    surfaceContainerHighest = Color(0xFFDFE5EE),
+    outline = Color(0xFF6B778A), outlineVariant = Color(0xFFC4CCD8),
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF8AB4F8), onPrimary = Color(0xFF062E6F),
-    primaryContainer = Color(0xFF1F3A60), onPrimaryContainer = Color(0xFFD3E3FD),
-    secondaryContainer = Color(0xFF1F3A60), onSecondaryContainer = Color(0xFFD3E3FD),
+    primary = Color(0xFFA8C7FA), onPrimary = Color(0xFF062E6F),
+    primaryContainer = Color(0xFF0842A0), onPrimaryContainer = Color(0xFFD3E3FD),
+    secondary = Color(0xFFBAC7DC), onSecondary = Color(0xFF243042),
+    secondaryContainer = Color(0xFF2F3B4F), onSecondaryContainer = Color(0xFFD9E3F8),
     error = Color(0xFFFFB4AB), onError = Color(0xFF690005),
-    background = Color(0xFF121212), onBackground = Color(0xFFF2F2F2),
-    surface = Color(0xFF1F1F1F), onSurface = Color(0xFFF2F2F2),
-    surfaceVariant = Color(0xFF1F1F1F), onSurfaceVariant = Color(0xFFC7C7C7),
-    surfaceContainerLowest = Color(0xFF121212), surfaceContainerLow = Color(0xFF1F1F1F),
-    surfaceContainer = Color(0xFF1F1F1F), surfaceContainerHigh = Color(0xFF1F1F1F),
-    surfaceContainerHighest = Color(0xFF1F1F1F),
-    outline = Color(0xFF9A9A9A), outlineVariant = Color(0xFF4A4A4A),
+    errorContainer = Color(0xFF93000A), onErrorContainer = Color(0xFFFFDAD6),
+    background = Color(0xFF0F1419), onBackground = Color(0xFFE3E8EF),
+    surface = Color(0xFF0F1419), onSurface = Color(0xFFE3E8EF),
+    surfaceVariant = Color(0xFF2A323D), onSurfaceVariant = Color(0xFFBFC8D4),
+    surfaceContainerLowest = Color(0xFF0A0E12), surfaceContainerLow = Color(0xFF161C23),
+    surfaceContainer = Color(0xFF1B222A), surfaceContainerHigh = Color(0xFF232B34),
+    surfaceContainerHighest = Color(0xFF2C343E),
+    outline = Color(0xFF8A94A3), outlineVariant = Color(0xFF3A434F),
 )
 
 private const val PREFS = "settings"
@@ -56,16 +56,5 @@ fun Context.saveDark(dark: Boolean) {
 
 @Composable
 fun AppTheme(dark: Boolean, content: @Composable () -> Unit) {
-    val scheme = if (dark) DarkColors else LightColors
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !dark
-                isAppearanceLightNavigationBars = !dark
-            }
-        }
-    }
-    MaterialTheme(colorScheme = scheme, content = content)
+    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, content = content)
 }
