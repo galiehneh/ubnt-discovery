@@ -5,7 +5,7 @@ use std::cmp::Ordering;
 
 use ubnt_discovery::protocol::{DeviceAddress, DiscoveredDevice};
 
-pub const APP_NAME: &str = "LAN Device Discovery";
+pub const APP_NAME: &str = "Ubnt Discovery";
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const AUTHOR: &str = "galiehneh";
 pub const REPO_URL: &str = "https://github.com/galiehneh/ubnt-discovery";

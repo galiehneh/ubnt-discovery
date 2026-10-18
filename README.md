@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="resources/icon.png" width="128" alt="LAN Device Discovery icon">
+  <img src="resources/icon.png" width="128" alt="Ubnt Discovery icon">
 </p>
 
-<h1 align="center">LAN Device Discovery</h1>
+<h1 align="center">Ubnt Discovery</h1>
 
 Tool *discovery* perangkat Ubiquiti untuk Windows 10/11 dalam **satu file `.exe` portabel**.
 Memindai jaringan lokal dan menampilkan perangkat airOS / UniFi / EdgeMax —
@@ -51,7 +51,7 @@ bawaan Windows.
 
 ## Unduh & jalankan
 
-Ambil `UbntDiscovery-vYYYY.M.D.exe` terbaru dari halaman
+Ambil `UbntDiscovery.exe` terbaru dari halaman
 [Releases](https://github.com/galiehneh/ubnt-discovery/releases), lalu jalankan.
 Tidak perlu instalasi atau runtime; boleh disalin ke mana saja (misalnya flashdisk).
 

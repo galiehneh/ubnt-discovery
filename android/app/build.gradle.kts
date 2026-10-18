@@ -25,8 +25,8 @@ android {
         applicationId = "com.galiehneh.ubntdiscovery"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2026101802
-        versionName = "2026.10.18.2"
+        versionCode = 2026101803
+        versionName = "2026.10.18.3"
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
         }

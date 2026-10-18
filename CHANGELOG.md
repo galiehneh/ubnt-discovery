@@ -4,6 +4,9 @@ Versi memakai tanggal (`YYYY.M.D`).
 
 ## [2026.10.18]
 
+### Diubah
+- Nama tampilan aplikasi (exe dan APK) menjadi "Ubnt Discovery".
+
 ### Diperbaiki
 - Android: teks tenggelam saat tema aplikasi berbeda dari tema sistem (latar kini mengikuti tema aplikasi, status/navigation bar disesuaikan).
 - Palet terang/gelap baru dengan kontras lebih jelas di APK dan exe; kartu, chip, dan tombol dirapikan.

@@ -20,7 +20,7 @@ use super::{about_window, details_window, theme};
 
 /// Seconds to wait after launch before the first scan starts by itself.
 const AUTOSTART_DELAY_SECS: u64 = 4;
-const TITLE: &str = "LAN Device Discovery";
+const TITLE: &str = "Ubnt Discovery";
 const MESSAGE_TITLE: &str = "Discovery";
 const TOOLBAR_HEIGHT: u32 = 44;
 const STATUS_HEIGHT: u32 = 26;

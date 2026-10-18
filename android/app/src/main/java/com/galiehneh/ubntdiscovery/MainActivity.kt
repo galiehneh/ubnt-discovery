@@ -119,7 +119,7 @@ private fun Screen(vm: DiscoveryViewModel, dark: Boolean, onToggleTheme: () -> U
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 12.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("LAN Device Discovery", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text("Ubnt Discovery", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             TextButton(onClick = onToggleTheme) { Text(if (dark) "☀ Terang" else "☾ Gelap") }
             TextButton(onClick = { showAbout = true }) { Text("About") }
         }
@@ -268,7 +268,7 @@ private fun AboutDialog(onDismiss: () -> Unit, onOpen: () -> Unit) {
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onOpen) { Text("Open GitHub") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-        title = { Text("LAN Device Discovery") },
+        title = { Text("Ubnt Discovery") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Image(
