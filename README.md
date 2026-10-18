@@ -1,4 +1,8 @@
-# LAN Device Discovery
+<p align="center">
+  <img src="resources/icon.png" width="128" alt="LAN Device Discovery icon">
+</p>
+
+<h1 align="center">LAN Device Discovery</h1>
 
 Tool *discovery* perangkat Ubiquiti untuk Windows 10/11 dalam **satu file `.exe` portabel**.
 Memindai jaringan lokal dan menampilkan perangkat airOS / UniFi / EdgeMax —
@@ -20,6 +24,13 @@ Memindai jaringan lokal dan menampilkan perangkat airOS / UniFi / EdgeMax —
 Ditulis dengan [native-windows-gui](https://crates.io/crates/native-windows-gui)
 (kontrol Win32 asli). Di-link statis terhadap C runtime, hanya bergantung pada DLL
 bawaan Windows.
+
+## Screenshot
+
+<p align="center">
+  <img src="screenshots/android-light.jpg" width="300" alt="Android - tema terang">
+  <img src="screenshots/android-dark.jpg" width="300" alt="Android - tema gelap">
+</p>
 
 ## Fitur
 
