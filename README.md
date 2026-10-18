@@ -28,8 +28,8 @@ bawaan Windows.
 ## Screenshot
 
 <p align="center">
-  <img src="screenshots/android-light.jpg" width="300" alt="Android - tema terang">
-  <img src="screenshots/android-dark.jpg" width="300" alt="Android - tema gelap">
+  <img src="screenshots/desktop.jpg" width="620" alt="Windows - desktop">
+  <img src="screenshots/android-light.jpg" width="220" alt="Android">
 </p>
 
 ## Fitur
