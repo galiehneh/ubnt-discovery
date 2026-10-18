@@ -6,6 +6,7 @@ use native_windows_gui as nwg;
 use ubnt_discovery::protocol::DiscoveredDevice;
 
 use super::model::{address_rows, or_unknown};
+use super::theme;
 
 const FIELD_LABEL_WIDTH: i32 = 100;
 const ROW_HEIGHT: i32 = 26;
@@ -131,6 +132,14 @@ fn build(parent: &nwg::Window, device: &DiscoveredDevice) -> Result<Dialog, nwg:
         .position((DIALOG_SIZE.0 - MARGIN - 100, DIALOG_SIZE.1 - 48 - MARGIN))
         .size((100, 30))
         .build(&mut close_btn)?;
+
+    theme::attach(&window, None);
+    theme::style_window(&window);
+    for field in &fields {
+        theme::style_edit(field);
+    }
+    theme::style_list(&list);
+    theme::style_button(&close_btn);
 
     Ok(Dialog {
         window,

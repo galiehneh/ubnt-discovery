@@ -5,6 +5,7 @@ Versi memakai tanggal (`YYYY.M.D`).
 ## [2026.10.18]
 
 ### Ditambahkan
+- Tombol tema gelap/terang di exe dan APK dengan palet kontras tinggi; pilihan disimpan.
 - Aplikasi Android (`android/`): UI Kotlin/Compose, inti discovery Rust yang sama via JNI.
   APK release ditandatangani, ABI arm64-v8a dan armeabi-v7a, minSdk 24.
 

@@ -576,12 +576,13 @@ checksum = "06bdbd8cfc056b8d2e2e85f29b56a3bdbecb527cef81eb39e3e7b98af4652770"
 
 [[package]]
 name = "ubnt-discovery"
-version = "2026.10.17"
+version = "2026.10.18"
 dependencies = [
  "if-addrs",
  "native-windows-gui",
  "opener",
  "socket2",
+ "winapi",
  "winresource",
 ]
 

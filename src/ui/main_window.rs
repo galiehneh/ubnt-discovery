@@ -16,7 +16,7 @@ use super::model::{
     autostart_text, build_tsv, countdown_text, filter_and_sort, row_cells, total_text, SortSpec,
     COLUMNS, SCAN_SECONDS,
 };
-use super::{about_window, details_window};
+use super::{about_window, details_window, theme};
 
 /// Seconds to wait after launch before the first scan starts by itself.
 const AUTOSTART_DELAY_SECS: u64 = 4;
@@ -24,11 +24,13 @@ const TITLE: &str = "LAN Device Discovery";
 const MESSAGE_TITLE: &str = "Discovery";
 const TOOLBAR_HEIGHT: u32 = 44;
 const STATUS_HEIGHT: u32 = 26;
-const MIN_SIZE: (i32, i32) = (640, 360);
+const MIN_SIZE: (i32, i32) = (960, 360);
 const BUTTON_WIDTH: i32 = 88;
-/// Right edge of the Search box; the About button never sits left of this.
-const ABOUT_MIN_X: i32 = 756;
+/// Toolbar buttons (theme toggle, About) never sit left of this; the Search box ends before it.
+const ABOUT_MIN_X: i32 = 850;
 const ABOUT_MARGIN: i32 = 8;
+const THEME_GAP: i32 = 6;
+const STATUS_TEXT_INSET: i32 = 8;
 
 /// Messages from the scan thread to the UI thread.
 enum ScanMsg {
@@ -57,10 +59,11 @@ struct App {
     copy_btn: nwg::Button,
     web_btn: nwg::Button,
     about_btn: nwg::Button,
+    theme_btn: nwg::Button,
     _search_label: nwg::Label,
     search: nwg::TextInput,
     list: nwg::ListView,
-    status: nwg::StatusBar,
+    status: nwg::Label,
     timer: nwg::AnimationTimer,
     autostart_timer: nwg::AnimationTimer,
     autostart_left: Cell<u64>,
@@ -86,12 +89,14 @@ pub fn run() {
         nwg::Font::set_global_default(Some(font));
     }
 
+    theme::set_current(theme::load());
     let app = match App::build() {
         Ok(app) => Rc::new(app),
         Err(err) => fatal(&format!("Failed to create the main window: {err}")),
     };
     let handler = bind_events(&app);
     app.layout();
+    app.apply_theme();
     app.refresh_list();
     app.begin_autostart();
     nwg::dispatch_thread_events();
@@ -130,7 +135,7 @@ impl App {
         let mut window = nwg::Window::default();
         nwg::Window::builder()
             .flags(nwg::WindowFlags::MAIN_WINDOW | nwg::WindowFlags::VISIBLE)
-            .size((920, 560))
+            .size((970, 560))
             .center(true)
             .title(TITLE)
             .icon(icon.as_ref())
@@ -152,6 +157,10 @@ impl App {
         let copy_btn = button("Copy", 290)?;
         let web_btn = button("Web UI", 384)?;
         let about_btn = button("About", ABOUT_MIN_X)?;
+        let theme_btn = button(
+            theme::current().toggle_label(),
+            ABOUT_MIN_X - BUTTON_WIDTH - THEME_GAP,
+        )?;
 
         let mut search_label = nwg::Label::default();
         nwg::Label::builder()
@@ -168,11 +177,13 @@ impl App {
             .build(&mut search)?;
 
         let list = build_list(&window)?;
-        let mut status = nwg::StatusBar::default();
-        nwg::StatusBar::builder()
+        let mut status = nwg::Label::default();
+        nwg::Label::builder()
             .parent(&window)
             .text(&total_text(0))
+            .size((300, STATUS_HEIGHT as i32 - 6))
             .build(&mut status)?;
+        theme::attach(&window, Some(&status));
         let mut timer = nwg::AnimationTimer::default();
         nwg::AnimationTimer::builder()
             .parent(&window)
@@ -196,6 +207,7 @@ impl App {
             copy_btn,
             web_btn,
             about_btn,
+            theme_btn,
             _search_label: search_label,
             search,
             list,
@@ -223,6 +235,43 @@ impl App {
         self.list.set_size(w, list_h);
         let about_x = (w as i32 - BUTTON_WIDTH - ABOUT_MARGIN).max(ABOUT_MIN_X);
         self.about_btn.set_position(about_x, 8);
+        self.theme_btn
+            .set_position(about_x - BUTTON_WIDTH - THEME_GAP, 8);
+        self.status.set_position(
+            STATUS_TEXT_INSET,
+            (h.saturating_sub(STATUS_HEIGHT) + 4) as i32,
+        );
+        self.status.set_size(
+            w.saturating_sub(STATUS_TEXT_INSET as u32),
+            STATUS_HEIGHT - 6,
+        );
+    }
+
+    fn apply_theme(&self) {
+        let theme = theme::current();
+        self.theme_btn.set_text(theme.toggle_label());
+        for button in [
+            &self.scan_btn,
+            &self.clear_btn,
+            &self.details_btn,
+            &self.copy_btn,
+            &self.web_btn,
+            &self.about_btn,
+            &self.theme_btn,
+        ] {
+            theme::style_button(button);
+        }
+        theme::style_edit(&self.search);
+        theme::style_list(&self.list);
+        theme::style_window(&self.window);
+    }
+
+    fn toggle_theme(&self) {
+        let theme = theme::current().toggled();
+        theme::set_current(theme);
+        // Failing to persist only loses the choice on next launch.
+        let _ = theme::save(theme);
+        self.apply_theme();
     }
 
     fn on_button(&self, handle: nwg::ControlHandle) {
@@ -239,6 +288,8 @@ impl App {
             self.open_web_ui();
         } else if handle == self.about_btn.handle {
             about_window::show(&self.window);
+        } else if handle == self.theme_btn.handle {
+            self.toggle_theme();
         }
     }
 
@@ -413,7 +464,7 @@ impl App {
         }
         self.list.set_redraw(true);
         self.rebuilding.set(false);
-        self.status.set_text(0, &total_text(rows.len()));
+        self.status.set_text(&total_text(rows.len()));
         self.state.borrow_mut().rows = rows;
         self.update_sort_arrows(sort);
         self.update_buttons();

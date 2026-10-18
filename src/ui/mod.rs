@@ -4,6 +4,8 @@ pub mod about_window;
 pub mod details_window;
 pub mod main_window;
 pub mod model;
+pub mod palette;
+pub mod theme;
 
 /// Set once the main window has asked the event loop to quit, so a nested
 /// dialog loop that swallowed the WM_QUIT can re-post it.

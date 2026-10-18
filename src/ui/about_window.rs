@@ -5,6 +5,7 @@ use std::sync::atomic::Ordering;
 use native_windows_gui as nwg;
 
 use super::model::{APP_NAME, APP_VERSION, AUTHOR, LICENSE_TEXT, ORIGINAL_TOOL, REPO_URL};
+use super::theme;
 
 const AVATAR_PNG: &[u8] = include_bytes!("../../resources/avatar.png");
 const AVATAR_SIZE: i32 = 96;
@@ -144,6 +145,12 @@ fn build(parent: &nwg::Window) -> Result<Dialog, nwg::NwgError> {
         .position((DIALOG_SIZE.0 - MARGIN - 100, button_y))
         .size((100, 30))
         .build(&mut close_btn)?;
+
+    theme::attach(&window, None);
+    theme::style_window(&window);
+    theme::style_edit(&repo_field);
+    theme::style_button(&open_btn);
+    theme::style_button(&close_btn);
 
     Ok(Dialog {
         window,

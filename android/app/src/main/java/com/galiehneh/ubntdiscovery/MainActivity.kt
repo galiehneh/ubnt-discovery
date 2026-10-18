@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -39,10 +40,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,29 +54,23 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import android.os.Build
+
+private fun Context.systemDark() =
+    (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
 class MainActivity : ComponentActivity() {
     private val vm: DiscoveryViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { AppTheme { Screen(vm) } }
+        setContent {
+            var dark by remember { mutableStateOf(savedDark() ?: systemDark()) }
+            AppTheme(dark) {
+                Screen(vm, dark, onToggleTheme = { dark = !dark; saveDark(dark) })
+            }
+        }
     }
-}
-
-@Composable
-private fun AppTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
-    val ctx = LocalContext.current
-    val scheme = when {
-        Build.VERSION.SDK_INT >= 31 -> if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
-        dark -> darkColorScheme()
-        else -> lightColorScheme()
-    }
-    MaterialTheme(colorScheme = scheme, content = content)
 }
 
 private fun Context.openUrl(url: String) {
@@ -90,7 +81,7 @@ private fun Context.openUrl(url: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Screen(vm: DiscoveryViewModel) {
+private fun Screen(vm: DiscoveryViewModel, dark: Boolean, onToggleTheme: () -> Unit) {
     val s by vm.state.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     var detail by remember { mutableStateOf<String?>(null) }
@@ -109,6 +100,7 @@ private fun Screen(vm: DiscoveryViewModel) {
     Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 12.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("LAN Device Discovery", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            TextButton(onClick = onToggleTheme) { Text(if (dark) "☀ Terang" else "☾ Gelap") }
             TextButton(onClick = { showAbout = true }) { Text("About") }
         }
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

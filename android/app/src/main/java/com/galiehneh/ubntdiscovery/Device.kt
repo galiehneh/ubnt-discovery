@@ -2,7 +2,7 @@ package com.galiehneh.ubntdiscovery
 
 import org.json.JSONObject
 
-const val APP_VERSION = "2026.10.18"
+const val APP_VERSION = "2026.10.18.1"
 const val AUTHOR = "galiehneh"
 const val REPO_URL = "https://github.com/galiehneh/ubnt-discovery"
 const val SCAN_SECONDS = 6
