@@ -28,8 +28,9 @@ bawaan Windows.
 ## Screenshot
 
 <p align="center">
-  <img src="screenshots/desktop.jpg" width="620" alt="Windows - desktop">
   <img src="screenshots/android-light.jpg" width="220" alt="Android">
+  <br>
+  <img src="screenshots/desktop.jpg" width="620" alt="Windows - desktop">
 </p>
 
 ## Fitur
