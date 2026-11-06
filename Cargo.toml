@@ -3,9 +3,9 @@ members = [".", "android/rust"]
 
 [package]
 name = "ubnt-discovery"
-version = "2026.10.18"
+version = "2026.11.6"
 edition = "2021"
-description = "Portable LAN discovery tool for Ubiquiti devices"
+description = "Portable LAN discovery tool for Ubiquiti, MikroTik, Hikvision and QNAP devices"
 authors = ["galiehneh"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/galiehneh/ubnt-discovery"

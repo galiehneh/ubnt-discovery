@@ -4,8 +4,9 @@
 
 <h1 align="center">Ubnt Discovery</h1>
 
-Tool *discovery* perangkat Ubiquiti untuk Windows 10/11 dalam **satu file `.exe` portabel**.
-Memindai jaringan lokal dan menampilkan perangkat airOS / UniFi / EdgeMax —
+Tool *discovery* perangkat jaringan untuk Windows 10/11 dalam **satu file `.exe` portabel**.
+Memindai jaringan lokal dan menampilkan perangkat **Ubiquiti** (airOS / UniFi / EdgeMax),
+**MikroTik**, kamera/NVR **Hikvision**, dan NAS **QNAP** —
 **tanpa Java, tanpa .NET, tanpa installer**.
 
 > ## Rewrite ke Rust dari Ubiquiti Discovery Tool
@@ -35,14 +36,26 @@ bawaan Windows.
 
 ## Fitur
 
-- **Scan** — broadcast probe discovery Ubiquiti (UDP 10001) di setiap interface
-  IPv4 aktif, lalu menampilkan balasan. Scan **otomatis mulai 4 detik** setelah
-  aplikasi dibuka; klik **Scan** untuk memulai lebih cepat.
-- Tabel perangkat: Product Name, IP Address, Hardware Address (MAC), System Name,
-  SSID, Firmware Version. Klik header kolom untuk mengurutkan.
+- **Mode deteksi** — pilih protokol lewat dropdown **Mode**. Mengganti mode langsung
+  memulai scan baru:
+
+  | Mode | Setara | Protokol |
+  |---|---|---|
+  | Ubiquiti | Ubiquiti Discovery Tool | UDP broadcast 10001 |
+  | MikroTik (MNDP) | WinBox → Neighbors | UDP broadcast 5678 |
+  | CCTV / NVR (SADP) | SADP Tool (Hikvision) | UDP multicast 239.255.255.250:37020 |
+  | NAS (QNAP) | Qfinder Pro | UDP broadcast 8097 |
+
+- **Scan** — kirim probe mode aktif di setiap interface IPv4 aktif, lalu tampilkan
+  balasan. Scan pertama **otomatis mulai 4 detik** setelah aplikasi dibuka; klik
+  **Scan** untuk memulai lebih cepat.
+- Tabel perangkat dengan enam kolom (judulnya mengikuti mode): produk/model, IP, MAC,
+  nama/identity/serial, SSID/platform/status, dan versi firmware. Klik header kolom
+  untuk mengurutkan.
 - **Details…** — field per perangkat beserta semua alamat jaringan yang dilaporkan.
 - **Copy** — menyalin baris terpilih (dipisah tab).
-- **Web UI** — membuka `http://<ip-perangkat>` di browser default.
+- **Web UI** — membuka `http://<ip-perangkat>` di browser default (memakai port yang
+  dilaporkan perangkat; QNAP 8080).
 - Filter **Search** dan **Total** perangkat secara langsung.
 - **About** — versi, tautan repo GitHub, dan lisensi.
 
@@ -84,7 +97,8 @@ cd android && ./gradlew assembleRelease
 ## Struktur proyek
 
 ```
-src/protocol/  client (scan UDP), tlv (parser reply), device, model_names, request
+src/protocol/  client (scan UDP), mode (daftar mode), tlv (Ubiquiti), mndp (MikroTik),
+               sadp (Hikvision), qnap (QNAP), device, model_names, request
 src/ui/        main_window, details_window, about_window, model (logika UI murni, ter-unit-test)
 resources/     app.ico, avatar.png, app.manifest (comctl32 v6, DPI per-monitor)
 build.rs       menyematkan ikon, manifest, dan version info
@@ -92,9 +106,25 @@ build.rs       menyematkan ikon, manifest, dan version info
 
 ## Catatan protokol
 
-Pertukaran discovery adalah UDP broadcast ke port **10001**. Balasan berupa header
-4 byte diikuti record TLV (`type`, panjang 2 byte, nilai). Parser bersifat defensif:
-tag tak dikenal dilewati, dan paket rusak/terpotong tidak pernah menyebabkan panic.
+Setiap mode memakai protokol vendornya sendiri. Semua parser bersifat defensif: tag tak
+dikenal dilewati, dan paket rusak/terpotong tidak pernah menyebabkan panic.
+
+- **Ubiquiti** — UDP broadcast ke port **10001**. Balasan berupa header 4 byte diikuti
+  record TLV (`type`, panjang 2 byte, nilai).
+- **MikroTik (MNDP)** — probe 4 byte nol ke UDP **5678**. Balasan: header 4 byte lalu TLV
+  (`type` 2 byte, panjang 2 byte, nilai) berisi MAC, identity, versi, platform, uptime,
+  board, dan IPv4.
+- **Hikvision (SADP)** — probe XML `<Probe>` ke multicast **239.255.255.250:37020**;
+  perangkat membalas dokumen XML `<ProbeMatch>` (model, serial, MAC, IP, versi, port HTTP,
+  status aktivasi).
+- **QNAP** — probe 16 byte ke UDP **8097**. Balasan: header 16 byte (MAC NAS dan penanda
+  `Se`) diikuti record `tag, panjang, data` (tag `0xCA` untuk record yang diperluas) berisi
+  nama server, model, IP, port web, tanggal dan nomor build. Balasan broadcast tidak memuat
+  nomor versi bertitik, sehingga kolom firmware menampilkan tanggal + nomor build.
+
+Format MNDP, SADP, dan QNAP dipelajari dari dokumentasi/capture publik dan dari balasan
+perangkat nyata, lalu ditulis ulang dari nol. Mode non-Ubiquiti baru ada di aplikasi
+Windows; aplikasi Android masih hanya mendeteksi Ubiquiti.
 
 ## Versi
 
@@ -103,9 +133,11 @@ sufiks `.N` bila ada beberapa rilis di hari yang sama.
 
 ## Disclaimer
 
-Ubiquiti, UniFi, airOS, dan EdgeMAX adalah merek dagang Ubiquiti Inc. Proyek ini
-tidak resmi, tidak berafiliasi, tidak disponsori, dan tidak didukung oleh Ubiquiti
-Inc. Nama-nama tersebut hanya dipakai untuk menjelaskan perangkat yang kompatibel.
+Ubiquiti, UniFi, airOS, dan EdgeMAX adalah merek dagang Ubiquiti Inc.; MikroTik dan
+WinBox milik SIA Mikrotikls; Hikvision dan SADP milik Hangzhou Hikvision Digital
+Technology Co., Ltd.; QNAP dan Qfinder milik QNAP Systems, Inc. Proyek ini tidak resmi,
+tidak berafiliasi, tidak disponsori, dan tidak didukung oleh pemilik merek mana pun.
+Nama-nama tersebut hanya dipakai untuk menjelaskan perangkat yang kompatibel.
 Software disediakan "apa adanya", tanpa jaminan apa pun.
 
 ## Lisensi

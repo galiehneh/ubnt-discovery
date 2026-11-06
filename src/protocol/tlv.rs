@@ -98,6 +98,7 @@ fn build_device(f: Fields) -> Option<DiscoveredDevice> {
         model_code: f.model_code,
         product_name,
         uptime_seconds: f.uptime,
+        web_port: None,
         addresses: f.addresses,
         last_seen: SystemTime::now(),
     })

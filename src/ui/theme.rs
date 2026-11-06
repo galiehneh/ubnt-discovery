@@ -10,7 +10,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use native_windows_gui as nwg;
 use winapi::shared::minwindef::{BOOL, DWORD, LPARAM, LRESULT, WPARAM};
 use winapi::shared::windef::{HBRUSH, HDC, HWND, RECT};
-use winapi::um::commctrl::{LVM_GETHEADER, LVM_SETTEXTBKCOLOR};
+use winapi::um::commctrl::{
+    CDDS_ITEMPREPAINT, CDDS_PREPAINT, CDRF_DODEFAULT, CDRF_NOTIFYITEMDRAW, LVM_GETHEADER,
+    LVM_SETTEXTBKCOLOR, NMCUSTOMDRAW, NM_CUSTOMDRAW,
+};
 use winapi::um::dwmapi::DwmSetWindowAttribute;
 use winapi::um::uxtheme::SetWindowTheme;
 use winapi::um::wingdi::{CreateSolidBrush, SetBkColor, SetTextColor, RGB};
@@ -18,11 +21,13 @@ use winapi::um::winreg::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
 use winapi::um::winuser::{
     FillRect, GetClassNameW, GetClientRect, RedrawWindow, SendMessageW, RDW_ALLCHILDREN, RDW_ERASE,
     RDW_INVALIDATE, RDW_UPDATENOW, WM_CTLCOLOREDIT, WM_CTLCOLORSTATIC, WM_ERASEBKGND,
+    WM_NOTIFY, WM_PRINTCLIENT,
 };
 
 use super::palette::{Rgb, Theme};
 
 const RAW_HANDLER_ID: usize = 0x1_0001;
+const LIST_HANDLER_ID: usize = 0x1_0002;
 const DWMWA_USE_IMMERSIVE_DARK_MODE: DWORD = 20;
 const SETTINGS_DIR: &str = "UbntDiscovery";
 const SETTINGS_FILE: &str = "theme.txt";
@@ -204,12 +209,73 @@ pub fn style_edit(input: &nwg::TextInput) {
     }
 }
 
+pub fn style_combo<D: Clone + std::fmt::Display + Default>(combo: &nwg::ComboBox<D>) {
+    if let Some(hwnd) = combo.handle.hwnd() {
+        set_visual_style(hwnd, "DarkMode_CFD");
+    }
+}
+
+/// `nwg::ListView` double-buffers by filling its back buffer with hard-coded white and then
+/// sending WM_PRINTCLIENT, so the area without items stays white whatever LVM_SETBKCOLOR says.
+/// Pre-fill the back buffer with the palette background before the list draws its items.
+/// Binding twice is rejected by nwg, which is fine: the first handler reads the live palette.
+fn paint_list_background(list: &nwg::ListView) {
+    let handler = nwg::bind_raw_event_handler(
+        &list.handle,
+        LIST_HANDLER_ID,
+        move |hwnd, msg, wparam, lparam| -> Option<LRESULT> {
+            if msg == WM_NOTIFY {
+                return header_text_color(hwnd, lparam);
+            }
+            if msg != WM_PRINTCLIENT {
+                return None;
+            }
+            let background = current().palette().background;
+            // SAFETY: for WM_PRINTCLIENT `wparam` is the HDC to draw into.
+            unsafe {
+                let mut rect: RECT = std::mem::zeroed();
+                GetClientRect(hwnd, &mut rect);
+                FillRect(wparam as HDC, &rect, brush(background));
+            }
+            // Let the list draw its items on top.
+            None
+        },
+    );
+    drop(handler);
+}
+
+/// The dark header theme draws dim grey captions; force the palette text colour instead.
+/// `lparam` is the NMHDR of a WM_NOTIFY sent to the list view.
+fn header_text_color(list: HWND, lparam: LPARAM) -> Option<LRESULT> {
+    // SAFETY: for WM_NOTIFY `lparam` points to an NMHDR (the start of NMCUSTOMDRAW when the
+    // code is NM_CUSTOMDRAW); the list view stays alive for the duration of the message.
+    unsafe {
+        let draw = lparam as *const NMCUSTOMDRAW;
+        if draw.is_null() || (*draw).hdr.code != NM_CUSTOMDRAW {
+            return None;
+        }
+        let header = SendMessageW(list, LVM_GETHEADER, 0, 0) as HWND;
+        if header.is_null() || (*draw).hdr.hwndFrom != header {
+            return None;
+        }
+        match (*draw).dwDrawStage {
+            CDDS_PREPAINT => Some(CDRF_NOTIFYITEMDRAW as LRESULT),
+            CDDS_ITEMPREPAINT => {
+                SetTextColor((*draw).hdc, colorref(current().palette().text));
+                Some(CDRF_DODEFAULT as LRESULT)
+            }
+            _ => None,
+        }
+    }
+}
+
 pub fn style_list(list: &nwg::ListView) {
     let Some(hwnd) = list.handle.hwnd() else {
         return;
     };
     let palette = current().palette();
     set_visual_style(hwnd, "DarkMode_Explorer");
+    paint_list_background(list);
     let (r, g, b) = palette.background;
     list.set_background_color(r, g, b);
     let (r, g, b) = palette.text;

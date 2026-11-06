@@ -21,6 +21,8 @@ pub struct DiscoveredDevice {
     pub model_code: Option<String>,
     pub product_name: Option<String>,
     pub uptime_seconds: Option<u32>,
+    /// HTTP port of the device web UI, when reported or known for the mode.
+    pub web_port: Option<u16>,
     pub addresses: Vec<DeviceAddress>,
     pub last_seen: SystemTime,
 }
@@ -82,6 +84,7 @@ impl DiscoveredDevice {
             model_code: prefer(&incoming.model_code, &self.model_code),
             product_name: prefer(&incoming.product_name, &self.product_name),
             uptime_seconds: incoming.uptime_seconds.or(self.uptime_seconds),
+            web_port: incoming.web_port.or(self.web_port),
             addresses,
             last_seen: incoming.last_seen,
         }
@@ -118,6 +121,7 @@ mod tests {
             model_code: None,
             product_name: None,
             uptime_seconds: None,
+            web_port: None,
             addresses: Vec::new(),
             last_seen: SystemTime::UNIX_EPOCH,
         }

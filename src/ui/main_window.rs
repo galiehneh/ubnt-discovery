@@ -10,11 +10,11 @@ use std::time::{Duration, Instant};
 
 use native_windows_gui as nwg;
 use nwg::ListViewColumnSortArrow as Arrow;
-use ubnt_discovery::protocol::{client, DiscoveredDevice};
+use ubnt_discovery::protocol::{client, DiscoveredDevice, Mode};
 
 use super::model::{
     autostart_text, build_tsv, countdown_text, filter_and_sort, row_cells, total_text, SortSpec,
-    COLUMNS, SCAN_SECONDS,
+    COLUMN_WIDTHS, SCAN_SECONDS,
 };
 use super::{about_window, details_window, theme};
 
@@ -24,10 +24,10 @@ const TITLE: &str = "Ubnt Discovery";
 const MESSAGE_TITLE: &str = "Discovery";
 const TOOLBAR_HEIGHT: u32 = 44;
 const STATUS_HEIGHT: u32 = 26;
-const MIN_SIZE: (i32, i32) = (960, 360);
+const MIN_SIZE: (i32, i32) = (1130, 360);
 const BUTTON_WIDTH: i32 = 88;
 /// Toolbar buttons (theme toggle, About) never sit left of this; the Search box ends before it.
-const ABOUT_MIN_X: i32 = 850;
+const ABOUT_MIN_X: i32 = 1008;
 const ABOUT_MARGIN: i32 = 8;
 const THEME_GAP: i32 = 6;
 const STATUS_TEXT_INSET: i32 = 8;
@@ -48,6 +48,7 @@ struct State {
     rows: Vec<DiscoveredDevice>,
     sort: SortSpec,
     scan: Option<ActiveScan>,
+    mode: Mode,
 }
 
 struct App {
@@ -60,6 +61,8 @@ struct App {
     web_btn: nwg::Button,
     about_btn: nwg::Button,
     theme_btn: nwg::Button,
+    _mode_label: nwg::Label,
+    mode_combo: nwg::ComboBox<&'static str>,
     _search_label: nwg::Label,
     search: nwg::TextInput,
     list: nwg::ListView,
@@ -120,6 +123,7 @@ fn bind_events(app: &Rc<App>) -> nwg::EventHandler {
             E::OnTimerTick if handle == app.autostart_timer.handle => app.on_autostart_tick(),
             E::OnTimerTick => app.on_tick(),
             E::OnTextInput if handle == app.search.handle => app.refresh_list(),
+            E::OnComboxBoxSelection if handle == app.mode_combo.handle => app.on_mode_changed(),
             E::OnButtonClick => app.on_button(handle),
             E::OnListViewColumnClick => app.on_column_click(data.on_list_view_item_index().1),
             E::OnListViewDoubleClick => app.show_details(),
@@ -135,7 +139,7 @@ impl App {
         let mut window = nwg::Window::default();
         nwg::Window::builder()
             .flags(nwg::WindowFlags::MAIN_WINDOW | nwg::WindowFlags::VISIBLE)
-            .size((970, 560))
+            .size((1120, 560))
             .center(true)
             .title(TITLE)
             .icon(icon.as_ref())
@@ -162,18 +166,34 @@ impl App {
             ABOUT_MIN_X - BUTTON_WIDTH - THEME_GAP,
         )?;
 
+        let mut mode_label = nwg::Label::default();
+        nwg::Label::builder()
+            .parent(&window)
+            .text("Mode:")
+            .position((482, 14))
+            .size((40, 20))
+            .build(&mut mode_label)?;
+        let mut mode_combo = nwg::ComboBox::default();
+        nwg::ComboBox::builder()
+            .parent(&window)
+            .collection(Mode::ALL.iter().map(|m| m.label()).collect())
+            .selected_index(Some(Mode::default().index()))
+            .position((524, 9))
+            .size((160, 26))
+            .build(&mut mode_combo)?;
+
         let mut search_label = nwg::Label::default();
         nwg::Label::builder()
             .parent(&window)
             .text("Search:")
-            .position((490, 14))
+            .position((696, 14))
             .size((52, 20))
             .build(&mut search_label)?;
         let mut search = nwg::TextInput::default();
         nwg::TextInput::builder()
             .parent(&window)
-            .position((546, 10))
-            .size((200, 24))
+            .position((752, 10))
+            .size((150, 24))
             .build(&mut search)?;
 
         let list = build_list(&window)?;
@@ -208,6 +228,8 @@ impl App {
             web_btn,
             about_btn,
             theme_btn,
+            _mode_label: mode_label,
+            mode_combo,
             _search_label: search_label,
             search,
             list,
@@ -223,6 +245,7 @@ impl App {
                 rows: Vec::new(),
                 sort: SortSpec::DEFAULT,
                 scan: None,
+                mode: Mode::default(),
             }),
             rebuilding: Cell::new(false),
         })
@@ -262,6 +285,7 @@ impl App {
             theme::style_button(button);
         }
         theme::style_edit(&self.search);
+        theme::style_combo(&self.mode_combo);
         theme::style_list(&self.list);
         theme::style_window(&self.window);
     }
@@ -337,10 +361,11 @@ impl App {
         let done_tx = self.tx.clone();
         let sender = self.notice.sender();
         let thread_cancel = Arc::clone(&cancel);
+        let mode = self.state.borrow().mode;
         let spawned = std::thread::Builder::new()
             .name("scan".into())
             .spawn(move || {
-                client::scan(Duration::from_secs(SCAN_SECONDS), thread_cancel, move |d| {
+                client::scan(mode, Duration::from_secs(SCAN_SECONDS), thread_cancel, move |d| {
                     if let Ok(tx) = device_tx.lock() {
                         let _ = tx.send(ScanMsg::Device(Box::new(d)));
                     }
@@ -357,6 +382,7 @@ impl App {
             cancel,
             started: Instant::now(),
         });
+        self.mode_combo.set_enabled(false);
         self.scan_btn.set_text(&countdown_text(0));
         self.timer.start();
     }
@@ -364,7 +390,45 @@ impl App {
     fn end_scan(&self) {
         self.state.borrow_mut().scan = None;
         self.timer.stop();
+        self.mode_combo.set_enabled(true);
         self.scan_btn.set_text("Scan");
+    }
+
+    /// Switch protocol: results of the old mode are dropped, headers renamed and a scan
+    /// for the new mode starts at once.
+    fn on_mode_changed(&self) {
+        let Some(index) = self.mode_combo.selection() else {
+            return;
+        };
+        let mode = Mode::from_index(index);
+        {
+            let mut st = self.state.borrow_mut();
+            if st.scan.is_some() || st.mode == mode {
+                return;
+            }
+            st.mode = mode;
+            st.devices.clear();
+        }
+        self.apply_column_titles(mode);
+        self.refresh_list();
+        // The user chose a mode to see its devices: skip any pending countdown and scan now.
+        self.cancel_autostart();
+        self.start_scan();
+    }
+
+    fn apply_column_titles(&self, mode: Mode) {
+        for (index, title) in mode.columns().iter().enumerate() {
+            self.list.update_column(
+                index,
+                nwg::InsertListViewColumn {
+                    index: Some(index as i32),
+                    // Text only: keep the user's column widths and alignment.
+                    fmt: None,
+                    width: None,
+                    text: Some((*title).to_string()),
+                },
+            );
+        }
     }
 
     fn on_tick(&self) {
@@ -421,7 +485,7 @@ impl App {
     }
 
     fn update_sort_arrows(&self, sort: SortSpec) {
-        for column in 0..COLUMNS.len() {
+        for column in 0..COLUMN_WIDTHS.len() {
             let arrow = (column == sort.column).then_some(if sort.ascending {
                 Arrow::Up
             } else {
@@ -489,7 +553,7 @@ impl App {
     fn show_details(&self) {
         let selected = self.selected_devices();
         if let Some(device) = selected.first() {
-            details_window::show(&self.window, device);
+            details_window::show(&self.window, device, self.state.borrow().mode);
         }
     }
 
@@ -507,10 +571,16 @@ impl App {
 
     fn open_web_ui(&self) {
         let selected = self.selected_devices();
-        let Some(ip) = selected.first().and_then(|d| d.ip) else {
+        let Some((ip, port)) = selected
+            .first()
+            .and_then(|d| d.ip.map(|ip| (ip, d.web_port)))
+        else {
             return;
         };
-        let url = format!("http://{ip}");
+        let url = match port {
+            Some(port) if port != 80 => format!("http://{ip}:{port}"),
+            _ => format!("http://{ip}"),
+        };
         if opener::open(&url).is_err() {
             self.warn(&format!(
                 "Failed launching web browser. Please open {url} manually."
@@ -545,11 +615,16 @@ fn build_list(window: &nwg::Window) -> Result<nwg::ListView, nwg::NwgError> {
         )
         .ex_flags(nwg::ListViewExFlags::FULL_ROW_SELECT | nwg::ListViewExFlags::GRID)
         .build(&mut list)?;
-    for (index, (title, width)) in COLUMNS.iter().enumerate() {
+    for (index, (title, width)) in Mode::default()
+        .columns()
+        .iter()
+        .zip(COLUMN_WIDTHS)
+        .enumerate()
+    {
         list.insert_column(nwg::InsertListViewColumn {
             index: Some(index as i32),
             fmt: Some(nwg::ListViewColumnFlags::LEFT),
-            width: Some(*width),
+            width: Some(width),
             text: Some((*title).to_string()),
         });
     }

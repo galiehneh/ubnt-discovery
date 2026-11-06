@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use socket2::{Domain, Protocol, Socket, Type};
 
 use super::device::DiscoveredDevice;
-use super::{request, tlv};
+use super::mode::Mode;
 
 const RECV_TIMEOUT: Duration = Duration::from_millis(200);
 const RESEND_INTERVAL: Duration = Duration::from_secs(1);
@@ -20,6 +20,7 @@ const RECV_BUF_LEN: usize = 4096;
 /// A bound sender socket plus its subnet-directed broadcast address.
 struct Sender {
     socket: UdpSocket,
+    ip: Ipv4Addr,
     subnet_broadcast: Ipv4Addr,
 }
 
@@ -66,13 +67,13 @@ fn subnet_broadcast(ip: Ipv4Addr, netmask: Ipv4Addr) -> Ipv4Addr {
 /// Run one scan, blocking until `duration` elapses or `cancel` is set.
 /// `on_device` is called from background threads with the merged snapshot
 /// whenever a device is found or updated.
-pub fn scan<F>(duration: Duration, cancel: Arc<AtomicBool>, on_device: F)
+pub fn scan<F>(mode: Mode, duration: Duration, cancel: Arc<AtomicBool>, on_device: F)
 where
     F: Fn(DiscoveredDevice) + Send + Sync + 'static,
 {
     let deadline = Instant::now() + duration;
     let senders = build_senders();
-    let listener = create_port_listener();
+    let listener = create_port_listener(mode, &senders);
     let table = DeviceTable::default();
     let cancel = cancel.as_ref();
     let on_device = &on_device;
@@ -82,13 +83,13 @@ where
     thread::scope(|scope| {
         for s in senders {
             if let Ok(clone) = s.socket.try_clone() {
-                scope.spawn(move || receive_loop(clone, cancel, deadline, table, on_device));
+                scope.spawn(move || receive_loop(mode, clone, cancel, deadline, table, on_device));
             }
         }
         if let Some(l) = listener {
-            scope.spawn(move || receive_loop(l, cancel, deadline, table, on_device));
+            scope.spawn(move || receive_loop(mode, l, cancel, deadline, table, on_device));
         }
-        scope.spawn(move || send_loop(senders, cancel, deadline));
+        scope.spawn(move || send_loop(mode, senders, cancel, deadline));
     });
 }
 
@@ -111,35 +112,56 @@ fn build_senders() -> Vec<Sender> {
             let socket = bind_socket(SocketAddrV4::new(ip, 0)).ok()?;
             Some(Sender {
                 socket,
+                ip,
                 subnet_broadcast: subnet_broadcast(ip, mask),
             })
         })
         .collect()
 }
 
-fn create_port_listener() -> Option<UdpSocket> {
-    bind_socket(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, request::PORT)).ok()
+/// Socket on the mode's well-known port; multicast modes also join their
+/// group on every interface so group-addressed replies are heard.
+fn create_port_listener(mode: Mode, senders: &[Sender]) -> Option<UdpSocket> {
+    let socket = bind_socket(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, mode.port())).ok()?;
+    if let Some(m) = mode.multicast() {
+        for s in senders {
+            // An interface that cannot join (e.g. down) is simply skipped.
+            let _ = socket.join_multicast_v4(&m.group, &s.ip);
+        }
+    }
+    Some(socket)
 }
 
 fn bind_socket(addr: SocketAddrV4) -> std::io::Result<UdpSocket> {
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
     socket.set_reuse_address(true)?;
     socket.set_broadcast(true)?;
+    if !addr.ip().is_unspecified() {
+        // Route multicast probes (SADP) out of this interface.
+        socket.set_multicast_if_v4(addr.ip())?;
+    }
     socket.bind(&SocketAddr::V4(addr).into())?;
     let socket: UdpSocket = socket.into();
     socket.set_read_timeout(Some(RECV_TIMEOUT))?;
     Ok(socket)
 }
 
-fn send_loop(senders: &[Sender], cancel: &AtomicBool, deadline: Instant) {
-    let global = SocketAddrV4::new(Ipv4Addr::BROADCAST, request::PORT);
+fn send_loop(mode: Mode, senders: &[Sender], cancel: &AtomicBool, deadline: Instant) {
+    let port = mode.port();
+    let global = SocketAddrV4::new(Ipv4Addr::BROADCAST, port);
+    let group = mode.multicast().map(|m| SocketAddrV4::new(m.group, port));
     while !should_stop(cancel, deadline) {
+        // Probes are rebuilt each round (SADP carries a fresh GUID).
+        let probes = mode.probes();
         for s in senders {
-            let subnet = SocketAddrV4::new(s.subnet_broadcast, request::PORT);
-            for probe in request::ALL {
+            let subnet = SocketAddrV4::new(s.subnet_broadcast, port);
+            for probe in &probes {
                 // Per-target send failures are expected on some adapters.
                 let _ = s.socket.send_to(probe, global);
                 let _ = s.socket.send_to(probe, subnet);
+                if let Some(group) = group {
+                    let _ = s.socket.send_to(probe, group);
+                }
             }
         }
         sleep_unless_stopped(RESEND_INTERVAL, cancel, deadline);
@@ -154,6 +176,7 @@ fn sleep_unless_stopped(total: Duration, cancel: &AtomicBool, deadline: Instant)
 }
 
 fn receive_loop<F>(
+    mode: Mode,
     socket: UdpSocket,
     cancel: &AtomicBool,
     deadline: Instant,
@@ -166,7 +189,7 @@ fn receive_loop<F>(
     while !should_stop(cancel, deadline) {
         match socket.recv_from(&mut buf) {
             Ok((len, from)) => {
-                if let Some(device) = buf.get(..len).and_then(|d| parse_reply(d, from.ip())) {
+                if let Some(device) = buf.get(..len).and_then(|d| parse_reply(mode, d, from.ip())) {
                     if let Some(updated) = table.merge(device) {
                         on_device(updated);
                     }
@@ -180,14 +203,17 @@ fn receive_loop<F>(
 }
 
 /// Parse a datagram, filling in the sender IPv4 when the packet carried none.
-fn parse_reply(data: &[u8], sender: IpAddr) -> Option<DiscoveredDevice> {
-    let mut device = tlv::parse(data)?;
-    if device.ip.is_none() {
-        if let IpAddr::V4(v4) = sender {
-            device.ip = Some(v4);
-        }
+fn parse_reply(mode: Mode, data: &[u8], sender: IpAddr) -> Option<DiscoveredDevice> {
+    match sender {
+        IpAddr::V4(v4) => mode.parse(data, v4),
+        // IPv6 senders: parse without an address fallback.
+        IpAddr::V6(_) => mode.parse(data, Ipv4Addr::UNSPECIFIED).map(|mut d| {
+            if d.ip == Some(Ipv4Addr::UNSPECIFIED) {
+                d.ip = None;
+            }
+            d
+        }),
     }
-    Some(device)
 }
 
 #[cfg(test)]
@@ -207,6 +233,7 @@ mod tests {
             model_code: None,
             product_name: None,
             uptime_seconds: None,
+            web_port: None,
             addresses: Vec::new(),
             last_seen: SystemTime::now(),
         }
@@ -294,28 +321,28 @@ mod tests {
     #[test]
     fn parse_reply_fills_sender_ip_when_missing() {
         let sender = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 7));
-        let d = parse_reply(&sample_packet(false), sender).expect("device");
+        let d = parse_reply(Mode::Ubiquiti, &sample_packet(false), sender).expect("device");
         assert_eq!(d.ip, Some(Ipv4Addr::new(10, 0, 0, 7)));
     }
 
     #[test]
     fn parse_reply_keeps_packet_ip_and_ignores_v6_sender() {
         let sender = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 7));
-        let d = parse_reply(&sample_packet(true), sender).expect("device");
+        let d = parse_reply(Mode::Ubiquiti, &sample_packet(true), sender).expect("device");
         assert_eq!(d.ip, Some(Ipv4Addr::new(9, 9, 9, 9)));
         let v6 = IpAddr::V6(Ipv6Addr::LOCALHOST);
         assert_eq!(
-            parse_reply(&sample_packet(false), v6).expect("device").ip,
+            parse_reply(Mode::Ubiquiti, &sample_packet(false), v6).expect("device").ip,
             None
         );
-        assert!(parse_reply(&[1, 2], sender).is_none());
+        assert!(parse_reply(Mode::Ubiquiti, &[1, 2], sender).is_none());
     }
 
     #[test]
     fn scan_returns_promptly_when_cancelled() {
         let cancel = Arc::new(AtomicBool::new(true));
         let start = Instant::now();
-        scan(Duration::from_secs(30), cancel, |_| {});
+        scan(Mode::Ubiquiti, Duration::from_secs(30), cancel, |_| {});
         assert!(start.elapsed() < Duration::from_secs(5));
     }
 }

@@ -3,15 +3,15 @@
 use std::sync::atomic::Ordering;
 
 use native_windows_gui as nwg;
-use ubnt_discovery::protocol::DiscoveredDevice;
+use ubnt_discovery::protocol::{DiscoveredDevice, Mode};
 
 use super::model::{address_rows, or_unknown};
 use super::theme;
 
-const FIELD_LABEL_WIDTH: i32 = 100;
+const FIELD_LABEL_WIDTH: i32 = 130;
 const ROW_HEIGHT: i32 = 26;
 const MARGIN: i32 = 12;
-const DIALOG_SIZE: (i32, i32) = (460, 440);
+const DIALOG_SIZE: (i32, i32) = (480, 470);
 
 struct Dialog {
     window: nwg::Window,
@@ -23,8 +23,8 @@ struct Dialog {
 }
 
 /// Show the modal device details dialog; returns once it is closed.
-pub fn show(parent: &nwg::Window, device: &DiscoveredDevice) {
-    let dialog = match build(parent, device) {
+pub fn show(parent: &nwg::Window, device: &DiscoveredDevice, mode: Mode) {
+    let dialog = match build(parent, device, mode) {
         Ok(d) => d,
         Err(err) => {
             nwg::error_message("Discovery", &format!("Could not open details: {err}"));
@@ -68,7 +68,11 @@ pub fn show(parent: &nwg::Window, device: &DiscoveredDevice) {
     }
 }
 
-fn build(parent: &nwg::Window, device: &DiscoveredDevice) -> Result<Dialog, nwg::NwgError> {
+fn build(
+    parent: &nwg::Window,
+    device: &DiscoveredDevice,
+    mode: Mode,
+) -> Result<Dialog, nwg::NwgError> {
     let title = format!("Device Details \u{2014} {}", device.display_product());
     let mut window = nwg::Window::default();
     nwg::Window::builder()
@@ -80,14 +84,17 @@ fn build(parent: &nwg::Window, device: &DiscoveredDevice) -> Result<Dialog, nwg:
         .build(&mut window)?;
 
     let uptime = device.display_uptime();
-    let values: [(&str, String); 7] = [
-        ("Product Name:", device.display_product().to_string()),
-        ("HW Address:", device.mac.clone()),
-        ("IP Address:", device.display_ip()),
-        ("System Name:", or_unknown(device.hostname.as_deref())),
-        ("SSID:", or_unknown(device.essid.as_deref())),
-        ("Version:", or_unknown(device.firmware.as_deref())),
+    let cols = mode.columns().map(|c| format!("{c}:"));
+    let web_port = device.web_port.map(|p| p.to_string());
+    let values: [(&str, String); 8] = [
+        (&cols[0], device.display_product().to_string()),
+        (&cols[2], device.mac.clone()),
+        (&cols[1], device.display_ip()),
+        (&cols[3], or_unknown(device.hostname.as_deref())),
+        (&cols[4], or_unknown(device.essid.as_deref())),
+        (&cols[5], or_unknown(device.firmware.as_deref())),
         ("Uptime:", or_unknown(Some(uptime.as_str()))),
+        ("Web Port:", or_unknown(web_port.as_deref())),
     ];
     let mut labels = Vec::new();
     let mut fields = Vec::new();

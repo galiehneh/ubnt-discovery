@@ -2,6 +2,30 @@
 
 Versi memakai tanggal (`YYYY.M.D`).
 
+## [2026.11.6]
+
+### Ditambahkan
+- Pemilih **Mode** di toolbar dengan tiga mode deteksi baru selain Ubiquiti:
+  - **MikroTik (MNDP)** — neighbor discovery seperti tab Neighbors di WinBox (UDP 5678).
+  - **CCTV / NVR (SADP)** — kamera dan NVR Hikvision seperti SADP Tool
+    (multicast 239.255.255.250:37020).
+  - **NAS (QNAP)** — NAS QNAP seperti Qfinder Pro (UDP 8097).
+- Mengganti mode langsung memulai scan untuk mode itu; hasil mode sebelumnya dikosongkan.
+- Judul kolom dan dialog Details menyesuaikan mode; **Web UI** memakai port yang dilaporkan
+  perangkat (Hikvision) atau 8080 (QNAP).
+
+### Diperbaiki
+- Tema gelap: area list yang kosong tidak lagi putih dan teks header kolom kembali terbaca.
+
+### Diubah
+- Lebar jendela minimum 1130 px agar toolbar (Mode, Search, tema, About) tidak bertumpuk.
+- Android: bridge Rust menyesuaikan API scan baru; aplikasi Android tetap hanya mendeteksi
+  Ubiquiti.
+
+### Catatan
+- Kolom firmware QNAP menampilkan tanggal dan nomor build; balasan broadcast QNAP tidak
+  membawa nomor versi bertitik.
+
 ## [2026.10.18]
 
 ### Diubah

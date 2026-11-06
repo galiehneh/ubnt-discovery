@@ -15,15 +15,9 @@ pub const LICENSE_TEXT: &str = "License: MIT OR Apache-2.0";
 /// Length of one scan in seconds.
 pub const SCAN_SECONDS: u64 = 6;
 
-/// Column headers and initial widths (logical pixels) of the main list.
-pub const COLUMNS: [(&str, i32); 6] = [
-    ("Product Name", 160),
-    ("IP Address", 110),
-    ("Hardware Address", 130),
-    ("System Name", 140),
-    ("SSID", 110),
-    ("Firmware Version", 170),
-];
+/// Initial widths (logical pixels) of the main list columns; titles come from
+/// `ubnt_discovery::protocol::Mode::columns`.
+pub const COLUMN_WIDTHS: [i32; 6] = [160, 110, 130, 140, 110, 170];
 
 const IP_COLUMN: usize = 1;
 
@@ -66,7 +60,7 @@ pub fn compare_by_column(a: &DiscoveredDevice, b: &DiscoveredDevice, column: usi
     if column == IP_COLUMN {
         return a.ip.cmp(&b.ip);
     }
-    let column = column.min(COLUMNS.len() - 1);
+    let column = column.min(COLUMN_WIDTHS.len() - 1);
     let (ca, cb) = (row_cells(a), row_cells(b));
     ca[column].to_lowercase().cmp(&cb[column].to_lowercase())
 }
@@ -171,6 +165,7 @@ mod tests {
             model_code: None,
             product_name: name.map(str::to_string),
             uptime_seconds: None,
+            web_port: None,
             addresses: Vec::new(),
             last_seen: SystemTime::UNIX_EPOCH,
         }

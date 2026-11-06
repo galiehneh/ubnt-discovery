@@ -10,6 +10,7 @@ use jni::{jni_sig, jni_str, EnvUnowned, JValue};
 use serde_json::{json, Value};
 use ubnt_discovery::protocol::client;
 use ubnt_discovery::protocol::device::DiscoveredDevice;
+use ubnt_discovery::protocol::Mode;
 
 static CANCEL: LazyLock<Arc<AtomicBool>> = LazyLock::new(|| Arc::new(AtomicBool::new(false)));
 
@@ -48,7 +49,8 @@ pub extern "system" fn Java_com_galiehneh_ubntdiscovery_NativeBridge_scan<'calle
         let ms = u64::try_from(duration_ms).unwrap_or(0);
         // A cancel() that landed before this point stays set so the scan returns at once;
         // the flag is cleared only after the scan ends.
-        client::scan(Duration::from_millis(ms), CANCEL.clone(), move |dev| {
+        // The Android UI has no mode selector yet: Ubiquiti only.
+        client::scan(Mode::Ubiquiti, Duration::from_millis(ms), CANCEL.clone(), move |dev| {
             let json = device_to_json(&dev);
             // Errors (e.g. listener threw) are dropped; scanning continues.
             let _ = vm.attach_current_thread(|env| -> Result<(), Error> {
@@ -95,6 +97,7 @@ mod tests {
             model_code: Some("N5N".into()),
             product_name: None,
             uptime_seconds: Some(86_400),
+            web_port: None,
             addresses: vec![DeviceAddress {
                 mac: "AA:BB".into(),
                 ip: None,
