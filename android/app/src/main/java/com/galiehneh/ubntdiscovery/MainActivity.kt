@@ -136,6 +136,26 @@ private fun Screen(vm: DiscoveryViewModel, dark: Boolean, onToggleTheme: () -> U
                 Text(if (s.selected.isEmpty()) "Copy" else "Copy (${s.selected.size})")
             }
         }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            ScanMode.entries.forEach { m ->
+                val on = s.mode == m
+                FilterChip(
+                    selected = on,
+                    onClick = { vm.setMode(m) },
+                    label = { Text(m.label) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true, selected = on,
+                        borderColor = MaterialTheme.colorScheme.outline,
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                    ),
+                )
+            }
+        }
         OutlinedTextField(
             value = s.query,
             onValueChange = vm::setQuery,
@@ -156,7 +176,7 @@ private fun Screen(vm: DiscoveryViewModel, dark: Boolean, onToggleTheme: () -> U
                 FilterChip(
                     selected = on,
                     onClick = { vm.toggleSort(c) },
-                    label = { Text(c.label + if (on) (if (s.sort.ascending) " ▲" else " ▼") else "") },
+                    label = { Text(s.mode.columns[c.ordinal] + if (on) (if (s.sort.ascending) " ▲" else " ▼") else "") },
                     colors = FilterChipDefaults.filterChipColors(
                         labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -189,7 +209,7 @@ private fun Screen(vm: DiscoveryViewModel, dark: Boolean, onToggleTheme: () -> U
 
     if (detailDevice != null) {
         ModalBottomSheet(onDismissRequest = { detail = null }) {
-            DetailSheet(detailDevice, onWeb = { ip -> ctx.openUrl("http://$ip") }, onClose = { detail = null })
+            DetailSheet(detailDevice, s.mode, onWeb = { url -> ctx.openUrl(url) }, onClose = { detail = null })
         }
     }
     if (showAbout) AboutDialog(onDismiss = { showAbout = false }, onOpen = { ctx.openUrl(REPO_URL) })
@@ -232,13 +252,15 @@ private fun DeviceCard(d: Device, selected: Boolean, selecting: Boolean, onTap: 
 }
 
 @Composable
-private fun DetailSheet(d: Device, onWeb: (String) -> Unit, onClose: () -> Unit) {
+private fun DetailSheet(d: Device, mode: ScanMode, onWeb: (String) -> Unit, onClose: () -> Unit) {
     fun unknown(v: String?) = v?.takeIf { it.isNotBlank() } ?: "Unknown"
+    val c = mode.columns
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
         listOf(
-            "Product" to d.displayProduct, "MAC" to d.mac, "IP" to d.displayIp,
-            "Name" to unknown(d.hostname), "SSID" to unknown(d.essid), "Version" to unknown(d.firmware),
+            c[0] to d.displayProduct, c[2] to d.mac, c[1] to d.displayIp,
+            c[3] to unknown(d.hostname), c[4] to unknown(d.essid), c[5] to unknown(d.firmware),
             "Uptime" to unknown(formatUptime(d.uptime)),
+            "Web Port" to unknown(d.webPort?.toString()),
         ).forEach { (k, v) ->
             Row(Modifier.padding(vertical = 3.dp)) {
                 Text(k, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(0.3f))
@@ -254,7 +276,7 @@ private fun DetailSheet(d: Device, onWeb: (String) -> Unit, onClose: () -> Unit)
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { d.ip?.let(onWeb) }, enabled = !d.ip.isNullOrBlank(), modifier = Modifier.weight(1f)) {
+            Button(onClick = { d.webUrl()?.let(onWeb) }, enabled = d.webUrl() != null, modifier = Modifier.weight(1f)) {
                 Text("Open Web UI")
             }
             OutlinedButton(onClick = onClose) { Text("Close") }

@@ -10,8 +10,8 @@ object NativeBridge {
         System.loadLibrary("ubnt_discovery_jni")
     }
 
-    /** Blocks for [durationMs]; call off the main thread. */
-    external fun scan(durationMs: Long, listener: DeviceListener)
+    /** Blocks for [durationMs]; [mode] is [ScanMode.ordinal]. Call off the main thread. */
+    external fun scan(mode: Int, durationMs: Long, listener: DeviceListener)
 
     external fun cancel()
 }

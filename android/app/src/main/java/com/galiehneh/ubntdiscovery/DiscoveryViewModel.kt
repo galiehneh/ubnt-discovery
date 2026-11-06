@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class UiState(
+    val mode: ScanMode = ScanMode.Ubiquiti,
     val devices: Map<String, Device> = emptyMap(),
     val query: String = "",
     val sort: SortSpec = SortSpec(),
@@ -48,6 +49,21 @@ class DiscoveryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onScanClick() = if (_state.value.scanning) stopScan() else startScan()
 
+    /** Switching mode drops old results and starts a fresh scan, like the desktop app. */
+    fun setMode(mode: ScanMode) {
+        if (mode == _state.value.mode) return
+        autostartJob?.cancel()
+        val running = scanJob
+        _state.update { it.copy(mode = mode, devices = emptyMap(), selected = emptySet(), message = null) }
+        viewModelScope.launch {
+            if (running?.isActive == true) {
+                stopScan()
+                running.join()
+            }
+            startScan()
+        }
+    }
+
     private fun startScan() {
         autostartJob?.cancel()
         if (scanJob?.isActive == true) return
@@ -55,6 +71,7 @@ class DiscoveryViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(buttonLabel = "Scan", message = "Not connected to Wi-Fi or Ethernet.") }
             return
         }
+        val scanMode = _state.value.mode
         _state.update { it.copy(scanning = true, message = null, buttonLabel = countdown(0)) }
         scanJob = viewModelScope.launch {
             val ticker = launch {
@@ -63,7 +80,7 @@ class DiscoveryViewModel(app: Application) : AndroidViewModel(app) {
                     _state.update { it.copy(buttonLabel = countdown(elapsed)) }
                 }
             }
-            val error = withContext(Dispatchers.IO) { runScan() }
+            val error = withContext(Dispatchers.IO) { runScan(scanMode) }
             ticker.cancel()
             _state.update {
                 it.copy(scanning = false, buttonLabel = "Scan", message = error ?: it.message)
@@ -72,13 +89,13 @@ class DiscoveryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Blocking; returns an error message or null. */
-    private fun runScan(): String? {
+    private fun runScan(mode: ScanMode): String? {
         val wifi = getApplication<Application>().applicationContext
             .getSystemService(Context.WIFI_SERVICE) as? WifiManager
         val lock = wifi?.createMulticastLock("ubnt-discovery")?.apply { setReferenceCounted(false) }
         return try {
             lock?.acquire()
-            NativeBridge.scan(SCAN_SECONDS * 1000L) { json -> Device.fromJson(json)?.let(::addDevice) }
+            NativeBridge.scan(mode.ordinal, SCAN_SECONDS * 1000L) { json -> Device.fromJson(json)?.let(::addDevice) }
             null
         } catch (e: Throwable) {
             "Scan failed: ${e.message ?: e.javaClass.simpleName}"

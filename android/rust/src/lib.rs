@@ -30,6 +30,7 @@ pub fn device_to_json(d: &DiscoveredDevice) -> String {
         "model_code": d.model_code,
         "product": d.display_product(),
         "uptime": d.display_uptime(),
+        "web_port": d.web_port,
         "addresses": addresses,
     })
     .to_string()
@@ -40,6 +41,7 @@ pub fn device_to_json(d: &DiscoveredDevice) -> String {
 pub extern "system" fn Java_com_galiehneh_ubntdiscovery_NativeBridge_scan<'caller>(
     mut unowned_env: EnvUnowned<'caller>,
     _this: JObject<'caller>,
+    mode: i32,
     duration_ms: i64,
     listener: JObject<'caller>,
 ) {
@@ -49,8 +51,8 @@ pub extern "system" fn Java_com_galiehneh_ubntdiscovery_NativeBridge_scan<'calle
         let ms = u64::try_from(duration_ms).unwrap_or(0);
         // A cancel() that landed before this point stays set so the scan returns at once;
         // the flag is cleared only after the scan ends.
-        // The Android UI has no mode selector yet: Ubiquiti only.
-        client::scan(Mode::Ubiquiti, Duration::from_millis(ms), CANCEL.clone(), move |dev| {
+        let mode = Mode::from_index(usize::try_from(mode).unwrap_or(0));
+        client::scan(mode, Duration::from_millis(ms), CANCEL.clone(), move |dev| {
             let json = device_to_json(&dev);
             // Errors (e.g. listener threw) are dropped; scanning continues.
             let _ = vm.attach_current_thread(|env| -> Result<(), Error> {
@@ -97,7 +99,7 @@ mod tests {
             model_code: Some("N5N".into()),
             product_name: None,
             uptime_seconds: Some(86_400),
-            web_port: None,
+            web_port: Some(8080),
             addresses: vec![DeviceAddress {
                 mac: "AA:BB".into(),
                 ip: None,
@@ -111,6 +113,7 @@ mod tests {
         assert!(v["essid"].is_null());
         assert_eq!(v["product"], "N5N");
         assert_eq!(v["uptime"], "1 day 00:00:00");
+        assert_eq!(v["web_port"], 8080);
         assert_eq!(v["addresses"][0]["mac"], "AA:BB");
         assert!(v["addresses"][0]["ip"].is_null());
     }

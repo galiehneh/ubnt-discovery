@@ -123,8 +123,8 @@ dikenal dilewati, dan paket rusak/terpotong tidak pernah menyebabkan panic.
   nomor versi bertitik, sehingga kolom firmware menampilkan tanggal + nomor build.
 
 Format MNDP, SADP, dan QNAP dipelajari dari dokumentasi/capture publik dan dari balasan
-perangkat nyata, lalu ditulis ulang dari nol. Mode non-Ubiquiti baru ada di aplikasi
-Windows; aplikasi Android masih hanya mendeteksi Ubiquiti.
+perangkat nyata, lalu ditulis ulang dari nol. Keempat mode tersedia di aplikasi Windows
+dan Android.
 
 ## Versi
 

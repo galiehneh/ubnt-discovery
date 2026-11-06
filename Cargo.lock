@@ -588,7 +588,7 @@ dependencies = [
 
 [[package]]
 name = "ubnt-discovery-jni"
-version = "2026.10.17"
+version = "2026.11.6"
 dependencies = [
  "jni",
  "serde_json",

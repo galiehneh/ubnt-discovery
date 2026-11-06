@@ -13,14 +13,14 @@ Versi memakai tanggal (`YYYY.M.D`).
 - Mengganti mode langsung memulai scan untuk mode itu; hasil mode sebelumnya dikosongkan.
 - Judul kolom dan dialog Details menyesuaikan mode; **Web UI** memakai port yang dilaporkan
   perangkat (Hikvision) atau 8080 (QNAP).
+- Android: pemilih Mode yang sama (Ubiquiti, MikroTik, SADP, QNAP); judul kolom dan detail
+  mengikuti mode, Open Web UI memakai port perangkat.
 
 ### Diperbaiki
 - Tema gelap: area list yang kosong tidak lagi putih dan teks header kolom kembali terbaca.
 
 ### Diubah
 - Lebar jendela minimum 1130 px agar toolbar (Mode, Search, tema, About) tidak bertumpuk.
-- Android: bridge Rust menyesuaikan API scan baru; aplikasi Android tetap hanya mendeteksi
-  Ubiquiti.
 
 ### Catatan
 - Kolom firmware QNAP menampilkan tanggal dan nomor build; balasan broadcast QNAP tidak

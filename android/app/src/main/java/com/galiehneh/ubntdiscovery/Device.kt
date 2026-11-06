@@ -2,12 +2,20 @@ package com.galiehneh.ubntdiscovery
 
 import org.json.JSONObject
 
-const val APP_VERSION = "2026.10.18.2"
+const val APP_VERSION = "2026.11.6"
 const val AUTHOR = "galiehneh"
 const val REPO_URL = "https://github.com/galiehneh/ubnt-discovery"
 const val SCAN_SECONDS = 6
 const val AUTOSTART_DELAY_SECS = 4
 private const val SECS_PER_DAY = 86_400L
+
+/** Vendor protocol; order and column titles mirror `Mode` in src/protocol/mode.rs. */
+enum class ScanMode(val label: String, val columns: List<String>) {
+    Ubiquiti("Ubiquiti", listOf("Product Name", "IP Address", "Hardware Address", "System Name", "SSID", "Firmware Version")),
+    MikroTik("MikroTik (MNDP)", listOf("Board", "IP Address", "MAC Address", "Identity", "Platform", "Version")),
+    Hikvision("CCTV / NVR (SADP)", listOf("Device Type", "IP Address", "MAC Address", "Serial No.", "Status", "Software Version")),
+    Qnap("NAS (QNAP)", listOf("Model", "IP Address", "MAC Address", "Server Name", "Type", "Firmware Version")),
+}
 
 data class DeviceAddress(val mac: String, val ip: String?)
 
@@ -20,6 +28,7 @@ data class Device(
     val modelCode: String?,
     val product: String?,
     val uptime: String?,
+    val webPort: Int?,
     val addresses: List<DeviceAddress>,
 ) {
     val displayProduct: String
@@ -41,6 +50,7 @@ data class Device(
         modelCode = n.modelCode.nonBlank()?.let { n.modelCode } ?: modelCode,
         product = n.product.nonBlank()?.let { n.product } ?: product,
         uptime = n.uptime ?: uptime,
+        webPort = n.webPort ?: webPort,
         addresses = (addresses + n.addresses).distinct(),
     )
 
@@ -48,6 +58,13 @@ data class Device(
         displayProduct, displayIp, mac, hostname.orEmpty(), essid.orEmpty(),
         firmware.orEmpty(), modelCode.orEmpty(),
     ).joinToString("\u0001").lowercase().contains(query.lowercase())
+
+    /** Web UI address; the port is omitted when absent or 80. */
+    fun webUrl(): String? {
+        val host = ip.nonBlank() ?: return null
+        val port = webPort
+        return if (port != null && port != 80) "http://$host:$port" else "http://$host"
+    }
 
     /** Reported addresses, or the primary pair. */
     fun addressRows(): List<DeviceAddress> = addresses.ifEmpty { listOf(DeviceAddress(mac, ip)) }
@@ -74,6 +91,7 @@ data class Device(
                 modelCode = o.str("model_code"),
                 product = o.str("product"),
                 uptime = o.str("uptime"),
+                webPort = o.str("web_port")?.toIntOrNull(),
                 addresses = addrs,
             )
         }.getOrNull()
@@ -85,9 +103,8 @@ data class Device(
 
 private fun String?.nonBlank(): String? = this?.takeIf { it.isNotBlank() }
 
-enum class SortColumn(val label: String) {
-    Product("Product"), Ip("IP"), Mac("MAC"), Name("Name"), Ssid("SSID"), Firmware("Firmware"),
-}
+/** Column positions match [ScanMode.columns]; titles depend on the active mode. */
+enum class SortColumn { Product, Ip, Mac, Name, Ssid, Firmware }
 
 data class SortSpec(val column: SortColumn = SortColumn.Product, val ascending: Boolean = true) {
     /** Same column flips direction; a new column starts ascending. */

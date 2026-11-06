@@ -1,6 +1,6 @@
 [package]
 name = "ubnt-discovery-jni"
-version = "2026.10.17"
+version = "2026.11.6"
 edition = "2021"
 description = "JNI bridge for the Android app"
 license = "MIT OR Apache-2.0"
